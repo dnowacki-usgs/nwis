@@ -1,5 +1,7 @@
 from __future__ import division, print_function
 
+import json
+
 import numpy as np
 import pandas as pd
 import pytz
@@ -106,7 +108,12 @@ def nwis_json(
             + str(parm)
         )
 
-    payload = requests.get(url).json()
+    try:
+        payload = requests.get(url).json()
+    except json.JSONDecodeError:
+        raise ValueError(
+            f"Error decoding JSON. For more details check the following URL in a broswer: <{url}>"
+        )
     v = payload["value"]["timeSeries"][0]["values"][0]["value"]
     pvt = payload["value"]["timeSeries"][0]
     nwis = {}
