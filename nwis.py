@@ -2,10 +2,10 @@ from __future__ import division, print_function
 
 import json
 
+import requests
 import numpy as np
 import pandas as pd
 import pytz
-import requests
 from dateutil import parser
 
 
@@ -120,8 +120,11 @@ def nwis_json(
     nwis["timelocal"] = np.array(
         [parser.parse(v[i]["dateTime"]) for i in range(len(v))]
     )
-    # Convert local time to UTC
-    nwis["time"] = np.array([x.astimezone(pytz.utc) for x in nwis["timelocal"]])
+    # Convert local time to UTC if unit values
+    if freq == "iv":
+        nwis["time"] = np.array([x.astimezone(pytz.utc) for x in nwis["timelocal"]])
+    elif freq == "dv":
+        nwis["time"] = nwis["timelocal"]  # keep naive date
     nwis["sitename"] = pvt["sourceInfo"]["siteName"]
     nwis["sitecode"] = pvt["sourceInfo"]["siteCode"][0]["value"]
     nwis["latitude"] = pvt["sourceInfo"]["geoLocation"]["geogLocation"]["latitude"]
