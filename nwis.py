@@ -71,7 +71,7 @@ def nwis_json(
 
     dnowacki@usgs.gov 2016-07
     """
-
+    print(freq)
     if start is not None and (pd.Timestamp(start) < pd.Timestamp("1970-01-01")):
         import warnings
 
@@ -107,13 +107,16 @@ def nwis_json(
             + "&parameterCd="
             + str(parm)
         )
-
+    print(url)
     try:
-        payload = requests.get(url).json()
+        return requests.get(url).json()
     except json.JSONDecodeError:
         raise ValueError(
             f"Error decoding JSON. For more details check the following URL in a broswer: <{url}>"
         )
+
+
+def to_dataframe(payload):
     v = payload["value"]["timeSeries"][0]["values"][0]["value"]
     pvt = payload["value"]["timeSeries"][0]
     nwis = {}
@@ -121,9 +124,9 @@ def nwis_json(
         [parser.parse(v[i]["dateTime"]) for i in range(len(v))]
     )
     # Convert local time to UTC if unit values
-    if freq == "iv":
+    if "/iv/" in payload["value"]["queryInfo"]["queryURL"]:
         nwis["time"] = np.array([x.astimezone(pytz.utc) for x in nwis["timelocal"]])
-    elif freq == "dv":
+    elif "/dv/" in payload["value"]["queryInfo"]["queryURL"]:
         nwis["time"] = nwis["timelocal"]  # keep naive date
     nwis["sitename"] = pvt["sourceInfo"]["siteName"]
     nwis["sitecode"] = pvt["sourceInfo"]["siteCode"][0]["value"]
@@ -135,7 +138,7 @@ def nwis_json(
     nwis["val"] = np.array([float(v[i]["value"]) for i in range(len(v))])
     nwis["val"][nwis["val"] == pvt["variable"]["noDataValue"]] = np.nan
 
-    df = pd.DataFrame(
+    return pd.DataFrame(
         nwis,
         columns=[
             "time",
@@ -151,15 +154,16 @@ def nwis_json(
         ],
     ).set_index("time")
 
-    if xarray:
-        ds = df.to_xarray()
-        ds["time"] = pd.DatetimeIndex(ds["time"].values)
-        ds["val"].attrs["units"] = ds["unit"].values[0]
-        ds["val"].attrs["variableName"] = ds["variableName"].values[0]
-        ds = ds.drop_vars(["unit", "variableName", "timelocal"])
-        for k in ["sitename", "latitude", "longitude", "sitecode", "srs"]:
-            ds.attrs[k] = ds[k].values[0]
-            ds = ds.drop_vars(k)
-        return ds
-    else:
-        return df
+
+def to_xarray(payload):
+    df = to_dataframe(payload)
+
+    ds = df.to_xarray()
+    ds["time"] = pd.DatetimeIndex(ds["time"].values)
+    ds["val"].attrs["units"] = ds["unit"].values[0]
+    ds["val"].attrs["variableName"] = ds["variableName"].values[0]
+    ds = ds.drop_vars(["unit", "variableName", "timelocal"])
+    for k in ["sitename", "latitude", "longitude", "sitecode", "srs"]:
+        ds.attrs[k] = ds[k].values[0]
+        ds = ds.drop_vars(k)
+    return ds
