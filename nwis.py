@@ -80,33 +80,22 @@ def nwis_json(
             RuntimeWarning,
         )
 
+    url = (
+        "http://waterservices.usgs.gov/nwis/"
+        + freq
+        + "/?format=json&sites="
+        + str(site)
+        + "&parameterCd="
+        + str(parm)
+    )
+
     if period is None and start is None and end is None:
         period = "P1D"
 
     if period is None:
-        url = (
-            "http://waterservices.usgs.gov/nwis/"
-            + freq
-            + "/?format=json&sites="
-            + str(site)
-            + "&startDT="
-            + start
-            + "&endDt="
-            + end
-            + "&parameterCd="
-            + str(parm)
-        )
+        url = url + "&startDT=" + start + "&endDt=" + end
     else:
-        url = (
-            "http://waterservices.usgs.gov/nwis/"
-            + freq
-            + "/?format=json&sites="
-            + str(site)
-            + "&period="
-            + period
-            + "&parameterCd="
-            + str(parm)
-        )
+        url = url + "&period=" + period
 
     try:
         payload = requests.get(url).json()
