@@ -101,8 +101,22 @@ def nwis_json(
         raise ValueError(
             f"Error decoding JSON. For more details check the following URL in a broswer: <{url}>"
         )
-    v = payload["value"]["timeSeries"][0]["values"][0]["value"]
     pvt = payload["value"]["timeSeries"][0]
+
+    dss = []
+    for n in range(len(pvt["values"])):
+        dss.append(get_single_value(pvt, n, freq, xarray))
+
+    # if only a single value, return it not as a list
+    # otherwise return as a list
+    if len(dss) == 1:
+        dss = dss[0]
+
+    return dss
+
+
+def get_single_value(pvt, n, freq, xarray):
+    v = pvt["values"][n]["value"]
     nwis = {}
     nwis["timelocal"] = pd.to_datetime([v[i]["dateTime"] for i in range(len(v))])
     # Convert local time to UTC if unit values
@@ -119,8 +133,14 @@ def nwis_json(
     nwis["srs"] = pvt["sourceInfo"]["geoLocation"]["geogLocation"]["srs"]
     nwis["unit"] = pvt["variable"]["unit"]["unitCode"]
     nwis["variableName"] = pvt["variable"]["variableName"]
+    nwis["methodDescription"] = pvt["values"][n]["method"][0]["methodDescription"]
     nwis["val"] = np.array([float(v[i]["value"]) for i in range(len(v))])
     nwis["val"][nwis["val"] == pvt["variable"]["noDataValue"]] = np.nan
+
+    # There can be times when certain values for a variable are empty, but others have data.
+    # For example, this is sometimes the case with turbidity.
+    if not len(nwis["val"]):
+        return None
 
     df = pd.DataFrame(
         nwis,
@@ -131,6 +151,7 @@ def nwis_json(
             "val",
             "unit",
             "variableName",
+            "methodDescription",
             "timelocal",
             "latitude",
             "longitude",
@@ -143,7 +164,8 @@ def nwis_json(
         ds["time"] = pd.DatetimeIndex(ds["time"].values)
         ds["val"].attrs["units"] = ds["unit"].values[0]
         ds["val"].attrs["variableName"] = ds["variableName"].values[0]
-        ds = ds.drop_vars(["unit", "variableName", "timelocal"])
+        ds["val"].attrs["methodDescription"] = ds["methodDescription"].values[0]
+        ds = ds.drop_vars(["unit", "variableName", "methodDescription", "timelocal"])
         for k in ["sitename", "latitude", "longitude", "sitecode", "srs"]:
             ds.attrs[k] = ds[k].values[0]
             ds = ds.drop_vars(k)
