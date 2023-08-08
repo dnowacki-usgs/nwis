@@ -1,12 +1,11 @@
 from __future__ import division, print_function
 
+import datetime
 import json
 
-import requests
 import numpy as np
 import pandas as pd
-import pytz
-from dateutil import parser
+import requests
 
 
 def nwis_json(
@@ -18,7 +17,6 @@ def nwis_json(
     freq="iv",
     xarray=False,
 ):
-
     """Obtain NWIS data via JSON.
 
     Parameters
@@ -106,12 +104,12 @@ def nwis_json(
     v = payload["value"]["timeSeries"][0]["values"][0]["value"]
     pvt = payload["value"]["timeSeries"][0]
     nwis = {}
-    nwis["timelocal"] = np.array(
-        [parser.parse(v[i]["dateTime"]) for i in range(len(v))]
-    )
+    nwis["timelocal"] = pd.to_datetime([v[i]["dateTime"] for i in range(len(v))])
     # Convert local time to UTC if unit values
     if freq == "iv":
-        nwis["time"] = np.array([x.astimezone(pytz.utc) for x in nwis["timelocal"]])
+        nwis["time"] = np.array(
+            [x.astimezone(datetime.timezone.utc) for x in nwis["timelocal"]]
+        )
     elif freq == "dv":
         nwis["time"] = nwis["timelocal"]  # keep naive date
     nwis["sitename"] = pvt["sourceInfo"]["siteName"]
