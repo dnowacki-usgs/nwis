@@ -99,9 +99,15 @@ def nwis_json(
         payload = requests.get(url).json()
     except json.JSONDecodeError:
         raise ValueError(
-            f"Error decoding JSON. For more details check the following URL in a broswer: <{url}>"
+            f"Error decoding JSON. For more details check the following URL in a browser: <{url}>"
         )
-    pvt = payload["value"]["timeSeries"][0]
+
+    try:
+        pvt = payload["value"]["timeSeries"][0]
+    except IndexError:
+        raise IndexError(
+            f"Data may not be available during the specified time period. For more details check the following URL in a browser: <{url}>"
+        )
 
     dss = []
     for n in range(len(pvt["values"])):
